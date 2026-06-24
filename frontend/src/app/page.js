@@ -14,7 +14,7 @@ export default function Home() {
 
   const buscarClientes = async () => {
     try {
-      const resposta = await fetch('http://localhost:3000/clientes');
+      const resposta = await fetch('https://apidewhats.onrender.com/clientes');
       const dados = await resposta.json();
       setClientes(dados);
       setCarregando(false);
@@ -31,7 +31,7 @@ export default function Home() {
   const salvarCliente = async (e) => {
     e.preventDefault(); 
     try {
-      const url = editandoId ? `http://localhost:3000/clientes/${editandoId}` : 'http://localhost:3000/clientes';
+      const url = editandoId ? `https://apidewhats.onrender.com/clientes/${editandoId}` : 'https://apidewhats.onrender.com/clientes';
       const metodo = editandoId ? 'PUT' : 'POST';
 
       const resposta = await fetch(url, {
@@ -53,7 +53,7 @@ export default function Home() {
     if (!window.confirm("Tem a certeza que deseja excluir este cliente?")) return;
     
     try {
-      const resposta = await fetch(`http://localhost:3000/clientes/${id}`, {
+      const resposta = await fetch(`https://apidewhats.onrender.com/clientes/${id}`, {
         method: 'DELETE'
       });
       if (resposta.ok) buscarClientes();
@@ -94,7 +94,7 @@ export default function Home() {
   const mudarStatus = async (cliente, novoStatus) => {
     try {
       // Avisa o backend para atualizar o status e disparar a automação invisível
-      const resposta = await fetch(`http://localhost:3000/clientes/${cliente.id}/status`, {
+      const resposta = await fetch(`https://apidewhats.onrender.com/clientes/${cliente.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: novoStatus })
