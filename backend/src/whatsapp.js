@@ -1,69 +1,100 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcodeTerminal = require('qrcode-terminal'); // Mantemos para você ver no terminal também
-const qrcode = require('qrcode'); // Nova biblioteca de imagem
 
-console.log("⏳ Inicializando módulo do WhatsApp...");
+// Variáveis na memória para guardar o que está acontecendo
+let statusWhatsApp = 'DESCONECTADO';
+let qrCodeAtual = '';
 
-// Variáveis globais para o Frontend ler
-let statusWhatsApp = 'INICIANDO'; // Pode ser: 'INICIANDO', 'ESPERANDO_QR', 'CONECTADO'
-let qrCodeImage = ''; 
-
+// Configuração do WhatsApp com o Puppeteer em modo "Dieta Extrema" para o Render
 const client = new Client({
-    authStrategy: new LocalAuth({
-        dataPath: './sessao_whatsapp'
-    }),
+    authStrategy: new LocalAuth(), // Salva a sessão para não ter que ler o QR Code toda vez
     puppeteer: {
-        handleSIGINT: false,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        headless: true, // Roda invisível no servidor
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--disable-gpu'
+        ] // Essas linhas garantem que o Chrome gaste pouquíssima memória RAM!
     }
 });
 
-client.on('qr', async (qr) => {
-    console.log('⚡ QR CODE GERADO! Disponível no terminal e no frontend.');
-    qrcodeTerminal.generate(qr, { small: true });
+// Evento: Quando o robô pede o QR Code
+client.on('qr', (qr) => {
+    console.log('✅ Novo QR Code gerado nos bastidores!');
+    statusWhatsApp = 'AGUARDANDO_QR';
     
-    // Transforma o texto do QR Code numa imagem Base64
-    qrCodeImage = await qrcode.toDataURL(qr);
-    statusWhatsApp = 'ESPERANDO_QR';
+    // Transforma o código num link de imagem para o frontend ler facilmente
+    qrCodeAtual = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(qr)}`;
 });
 
+// Evento: Quando o WhatsApp conecta com sucesso
 client.on('ready', () => {
-    console.log('🚀 WhatsApp conectado e pronto para enviar mensagens automáticas!');
+    console.log('🚀 Motor do WhatsApp conectado e pronto para uso!');
     statusWhatsApp = 'CONECTADO';
-    qrCodeImage = ''; // Limpa a imagem porque já conectou
+    qrCodeAtual = ''; // Limpa o QR Code pois já conectou
 });
 
-client.initialize();
+// Evento: Se o celular for desconectado ou a internet cair
+client.on('disconnected', (reason) => {
+    console.log('❌ WhatsApp Desconectado:', reason);
+    statusWhatsApp = 'DESCONECTADO';
+    qrCodeAtual = '';
+});
 
-// ... (A função enviarMensagemInvisivel que já estava aqui continua igual) ...
-const enviarMensagemInvisivel = async (telefone, texto) => {
-    try {
-        let numeroLimpo = telefone.replace(/\D/g, '');
-        if (numeroLimpo.length === 10 || numeroLimpo.length === 11) {
-            numeroLimpo = '55' + numeroLimpo;
-        }
+// ==========================================
+// FUNÇÕES QUE O SERVER.JS VAI USAR
+// ==========================================
 
-        const contato = await client.getNumberId(numeroLimpo);
-
-        if (!contato) {
-            console.log(`⚠️ AVISO: O número ${numeroLimpo} não foi encontrado no WhatsApp.`);
-            return; 
-        }
-
-        await client.sendMessage(contato._serialized, texto);
-        console.log(`✅ Mensagem enviada com sucesso para ${numeroLimpo}`);
+// 1. Função para dar a partida no motor (o nosso botão verde da tela vai chamar ela)
+const iniciarWhatsApp = () => {
+    if (statusWhatsApp === 'DESCONECTADO' || statusWhatsApp === 'ERRO') {
+        console.log('Dando a partida no Puppeteer...');
+        statusWhatsApp = 'INICIANDO MOTOR...';
         
-    } catch (erro) {
-        console.error(`❌ Erro interno ao enviar mensagem:`, erro.message);
+        client.initialize().catch(err => {
+            console.error('Erro forte ao iniciar o bot:', err);
+            statusWhatsApp = 'ERRO';
+        });
+    } else {
+        console.log('O motor já está ligado ou carregando!');
     }
 };
 
-// Nova função que exportamos para o server.js
+// 2. Função para o frontend saber como estão as coisas
 const obterStatusWhatsApp = () => {
     return {
         status: statusWhatsApp,
-        qrCode: qrCodeImage
+        qrCode: qrCodeAtual
     };
 };
 
-module.exports = { enviarMensagemInvisivel, obterStatusWhatsApp };
+// 3. Função para mandar mensagens automáticas lá na tela de Clientes
+const enviarMensagemInvisivel = async (telefone, mensagem) => {
+    if (statusWhatsApp !== 'CONECTADO') {
+        console.log('Aviso: Tentou enviar mensagem, mas o WhatsApp não está conectado.');
+        return false;
+    }
+
+    try {
+        // Limpa o telefone deixando só os números e coloca no formato padrão brasileiro
+        // Exemplo: 55 + DDD + Numero + @c.us
+        const apenasNumeros = telefone.replace(/\D/g, '');
+        const numeroFormatado = `55${apenasNumeros}@c.us`;
+        
+        await client.sendMessage(numeroFormatado, mensagem);
+        console.log(`Mensagem enviada com sucesso para o número: ${telefone}`);
+        return true;
+    } catch (error) {
+        console.error('Falha ao enviar mensagem pelo bot:', error);
+        return false;
+    }
+};
+
+module.exports = {
+    iniciarWhatsApp,
+    obterStatusWhatsApp,
+    enviarMensagemInvisivel
+};

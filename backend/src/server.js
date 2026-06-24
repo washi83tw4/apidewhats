@@ -4,17 +4,16 @@ require('dotenv').config();
 
 console.log("🚀 1. Iniciando o servidor...");
 
-// Importamos o cliente do Supabase e as funções do WhatsApp
-// (Se precisares de chamar a função que inicia o bot, lembra-te de a exportar no whatsapp.js e importá-la aqui)
 const supabase = require('./supabase');
-const { enviarMensagemInvisivel, obterStatusWhatsApp } = require('./whatsapp');
+// IMPORTAÇÃO ATUALIZADA: Puxando a função iniciarWhatsApp
+const { enviarMensagemInvisivel, obterStatusWhatsApp, iniciarWhatsApp } = require('./whatsapp');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuração de CORS atualizada para permitir acesso da Vercel sem bloqueios
+// Configuração de CORS para permitir acesso da Vercel
 app.use(cors({
-  origin: '*', // O asterisco avisa o Render para aceitar conexões de qualquer site (Vercel, localhost, etc)
+  origin: '*', 
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 200
@@ -41,9 +40,8 @@ app.post('/whatsapp/start', (req, res) => {
     try {
         console.log('Comando recebido: Iniciando o WhatsApp...');
         
-        // Aqui chamamos a função que liga o bot do WhatsApp. 
-        // Substitui "client.initialize()" pela função correta caso tenhas dado outro nome no teu whatsapp.js
-        // client.initialize(); 
+        // FUNÇÃO ATUALIZADA: Chama o robô com a configuração de dieta de memória
+        iniciarWhatsApp(); 
         
         res.status(200).json({ success: true, message: 'Processo de inicialização do WhatsApp começou!' });
     } catch (error) {
@@ -62,7 +60,7 @@ app.get('/clientes', async (req, res) => {
     const { data, error } = await supabase
       .from('clientes')
       .select('*')
-      .order('id', { ascending: true }); // Ordena pelo ID
+      .order('id', { ascending: true });
 
     if (error) throw error;
     res.json(data);
@@ -80,7 +78,7 @@ app.post('/clientes', async (req, res) => {
     const { data, error } = await supabase
       .from('clientes')
       .insert([{ nome, email, telefone, empresa }])
-      .select(); // Força o Supabase a retornar o cliente criado
+      .select();
 
     if (error) throw error;
     res.status(201).json({ mensagem: 'Cliente criado com sucesso!', id: data[0].id });
@@ -115,7 +113,6 @@ app.patch('/clientes/:id/status', async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
     
-    // 1. Atualiza o status no Supabase
     const { data, error } = await supabase
       .from('clientes')
       .update({ status })
@@ -128,7 +125,6 @@ app.patch('/clientes/:id/status', async (req, res) => {
     const cliente = data[0];
     res.json({ mensagem: 'Status atualizado com sucesso!' });
 
-    // 2. Dispara a nossa automação invisível do WhatsApp
     let mensagemAutomacao = '';
     if (status === 'Em negociação') {
       mensagemAutomacao = `Olá ${cliente.nome}, vimos que você está interessado! Como podemos ajudar a fechar negócio com a ${cliente.empresa || 'sua empresa'}?`;
