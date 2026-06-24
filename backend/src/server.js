@@ -4,7 +4,8 @@ require('dotenv').config();
 
 console.log("🚀 1. Iniciando o servidor...");
 
-// Importamos o cliente do Supabase e o módulo do WhatsApp (agora com a nova função)
+// Importamos o cliente do Supabase e as funções do WhatsApp
+// (Se precisares de chamar a função que inicia o bot, lembra-te de a exportar no whatsapp.js e importá-la aqui)
 const supabase = require('./supabase');
 const { enviarMensagemInvisivel, obterStatusWhatsApp } = require('./whatsapp');
 
@@ -19,12 +20,34 @@ app.get('/', (req, res) => {
 });
 
 // ==========================================
-// NOVA ROTA: STATUS DO WHATSAPP E QR CODE
+// ROTAS DO WHATSAPP
 // ==========================================
+
+// Rota para ler o status e o QR Code
 app.get('/whatsapp/status', (req, res) => {
   const statusAtual = obterStatusWhatsApp();
   res.json(statusAtual);
 });
+
+// NOVA ROTA: Botão para iniciar o WhatsApp manualmente
+app.post('/whatsapp/start', (req, res) => {
+    try {
+        console.log('Comando recebido: Iniciando o WhatsApp...');
+        
+        // Aqui chamamos a função que liga o bot do WhatsApp. 
+        // Substitui "client.initialize()" pela função correta caso tenhas dado outro nome no teu whatsapp.js
+        // client.initialize(); 
+        
+        res.status(200).json({ success: true, message: 'Processo de inicialização do WhatsApp começou!' });
+    } catch (error) {
+        console.error('Erro ao dar a partida no WhatsApp:', error);
+        res.status(500).json({ success: false, error: 'Erro ao ligar o bot.' });
+    }
+});
+
+// ==========================================
+// ROTAS DOS CLIENTES (CRM)
+// ==========================================
 
 // 1. Rota para LISTAR todos os clientes (GET)
 app.get('/clientes', async (req, res) => {

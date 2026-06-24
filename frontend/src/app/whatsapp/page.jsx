@@ -6,20 +6,37 @@ export default function WhatsAppConfig() {
   const [status, setStatus] = useState('CARREGANDO');
   const [qrCode, setQrCode] = useState('');
 
-  useEffect(() => {
-    // Função que bate lá na nossa rota nova do Backend
-    const checarStatus = async () => {
-      try {
-        const resposta = await fetch('https://apidewhats.onrender.com/whatsapp/status');
-        const dados = await resposta.json();
-        
-        setStatus(dados.status);
-        setQrCode(dados.qrCode);
-      } catch (erro) {
-        console.error('Erro ao buscar status do WhatsApp:', erro);
-      }
-    };
+  // Função que bate lá na nossa rota do Backend para ver se o WhatsApp tá ligado
+  const checarStatus = async () => {
+    try {
+      // URL apontando direto para a nuvem no Render
+      const resposta = await fetch('https://apidewhats.onrender.com/whatsapp/status');
+      const dados = await resposta.json();
+      
+      setStatus(dados.status || 'DESCONECTADO');
+      setQrCode(dados.qrCode || '');
+    } catch (erro) {
+      console.error('Erro ao buscar status do WhatsApp:', erro);
+      setStatus('ERRO DE CONEXÃO');
+    }
+  };
 
+  // Função nova do botão para iniciar o WhatsApp na marra
+  const iniciarWhatsApp = async () => {
+    setStatus('INICIANDO MOTOR...'); // Feedback visual bacana para o utilizador
+    try {
+      await fetch('https://apidewhats.onrender.com/whatsapp/start', {
+        method: 'POST',
+      });
+      // Não precisamos fazer mais nada aqui, porque o 'setInterval' lá embaixo 
+      // vai continuar checando a cada 3 segundos e vai atualizar o QR Code sozinho!
+    } catch (erro) {
+      console.error('Erro ao iniciar o WhatsApp:', erro);
+      setStatus('ERRO AO INICIAR');
+    }
+  };
+
+  useEffect(() => {
     // Roda a primeira vez na hora que abre a página
     checarStatus();
 
@@ -32,46 +49,45 @@ export default function WhatsAppConfig() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">Conexão WhatsApp</h1>
+      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center border border-gray-100">
+        <h1 className="text-2xl font-bold mb-6 text-gray-800">Conexão WhatsApp</h1>
+        
+        <div className="mb-6 flex items-center justify-center gap-2">
+          <span className="text-gray-600 font-semibold">Status:</span>
+          <span className={`font-bold px-3 py-1 rounded-full text-sm ${
+            status === 'CONECTADO' ? 'bg-green-100 text-green-700' : 
+            status === 'INICIANDO MOTOR...' ? 'bg-yellow-100 text-yellow-700' :
+            'bg-blue-100 text-blue-700'
+          }`}>
+            {status}
+          </span>
+        </div>
 
-        {/* ESTADO 1: Carregando ou Iniciando */}
-        {(status === 'INICIANDO' || status === 'CARREGANDO') && (
-          <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-            <p className="text-gray-600 font-medium">Iniciando o servidor do WhatsApp...</p>
-            <p className="text-sm text-gray-400 mt-2">Isso pode levar alguns segundos.</p>
+        {/* Mostra o QR Code só se ele existir e não estiver conectado */}
+        {qrCode && status !== 'CONECTADO' && (
+          <div className="flex justify-center mb-6 bg-white p-4 rounded-lg shadow-inner border-2 border-gray-100">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qrCode} alt="QR Code WhatsApp" className="w-64 h-64 object-contain" />
           </div>
         )}
 
-        {/* ESTADO 2: Esperando ler o QR Code */}
-        {status === 'ESPERANDO_QR' && qrCode && (
-          <div className="flex flex-col items-center animate-fade-in">
-            <div className="bg-gray-100 p-4 rounded-xl mb-4">
-              {/* Aqui é onde a mágica acontece: a tag img lê o Base64 do backend */}
-              <img src={qrCode} alt="QR Code do WhatsApp" className="w-64 h-64 mx-auto" />
-            </div>
-            <p className="text-gray-700 font-semibold mb-2">Escaneie o QR Code</p>
-            <ol className="text-sm text-gray-500 text-left list-decimal list-inside">
-              <li>Abra o WhatsApp no seu celular</li>
-              <li>Vá em Configurações &gt; Aparelhos Conectados</li>
-              <li>Aponte a câmera para a tela</li>
-            </ol>
-          </div>
-        )}
-
-        {/* ESTADO 3: Conectado com Sucesso */}
         {status === 'CONECTADO' && (
-          <div className="flex flex-col items-center animate-fade-in">
-            <div className="bg-green-100 p-4 rounded-full mb-4">
-              <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-              </svg>
-            </div>
-            <p className="text-green-700 font-bold text-lg mb-2">WhatsApp Conectado!</p>
-            <p className="text-sm text-gray-600">O sistema está pronto para realizar os disparos automáticos de CRM.</p>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <p className="text-green-700 font-medium">
+              ✅ Tudo certo! O robô já está conectado e pronto para enviar mensagens automaticamente.
+            </p>
           </div>
         )}
+
+        {/* O NOVO BOTÃO AQUI */}
+        <button 
+          onClick={iniciarWhatsApp}
+          disabled={status === 'CONECTADO'}
+          className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all active:scale-95"
+        >
+          {status === 'CONECTADO' ? 'WhatsApp já conectado' : 'Gerar Novo QR Code'}
+        </button>
+        
       </div>
     </div>
   );
