@@ -12,7 +12,14 @@ const { enviarMensagemInvisivel, obterStatusWhatsApp } = require('./whatsapp');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// Configuração de CORS atualizada para permitir acesso da Vercel sem bloqueios
+app.use(cors({
+  origin: '*', // O asterisco avisa o Render para aceitar conexões de qualquer site (Vercel, localhost, etc)
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200
+}));
+
 app.use(express.json());
 
 app.get('/', (req, res) => {
